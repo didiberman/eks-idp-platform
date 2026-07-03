@@ -1,26 +1,26 @@
 # EKS IDP Platform
 
-> Production-style Internal Developer Platform on AWS EKS — built for platform engineering portfolios.
+> Production IDP on AWS EKS
 
 [![Terraform](https://img.shields.io/badge/Terraform-1.9+-623CE4?logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/eks/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A security-first EKS platform demonstrating the skills platform engineering teams expect: **Terraform modules**, **GitOps**, **policy-as-code**, **network segmentation**, and **autoscaling**.
+A security-first EKS platform with Terraform modules, ArgoCD, Kyverno, Cilium, Karpenter, and GitHub Actions CI.
 
 ---
 
-## What This Project Demonstrates
+## What It Does
 
-| Capability | Implementation |
-|------------|----------------|
-| Infrastructure as Code | Modular Terraform (networking → EKS → platform services) |
-| Security | Cilium default-deny, Kyverno policies, IRSA, KMS encryption |
-| Autoscaling | Karpenter with spot + on-demand, HPA golden-path app |
-| GitOps | ArgoCD with automated sync of sample application |
-| Observability-ready | Cilium Hubble, EKS control plane logging, VPC flow logs |
-| CI/CD | GitHub Actions — fmt, validate, tflint, checkov, trivy, terraform test |
+| Area | Description |
+|------|-------------|
+| Infrastructure as Code | Provisions VPC, EKS, and platform services through modular Terraform |
+| Security | Enforces default-deny networking with Cilium, admission policies with Kyverno, IRSA, and KMS encryption |
+| Autoscaling | Scales nodes with Karpenter (spot and on-demand) and scales pods with HPA |
+| GitOps | Deploys applications from Git with ArgoCD and automated sync |
+| Observability | Exposes network flows via Cilium Hubble, EKS control plane logs, and VPC flow logs |
+| CI/CD | Validates every change with fmt, validate, tflint, checkov, trivy, and terraform test |
 
 ---
 
@@ -192,7 +192,7 @@ Baseline policies (audit mode):
 
 ## Golden Path Application
 
-The sample app in `apps/golden-path/` demonstrates platform standards:
+The sample app in `apps/golden-path/` is a reference workload shipped with:
 
 - Required labels for Kyverno compliance
 - Non-root security context with dropped capabilities
@@ -257,21 +257,6 @@ Every push and PR runs:
 
 ---
 
-## Interview Talking Points
-
-1. **Why two-phase apply?** — Kubernetes providers need the cluster endpoint; this is a known Terraform + EKS pattern.
-2. **Why a tainted system node group?** — Platform controllers (Karpenter, Cilium operator) need stable nodes; workloads scale via Karpenter.
-3. **Why Kyverno in audit mode?** — Safe rollout of policies without blocking existing workloads; promotes policy-as-code culture.
-4. **Why Cilium over Calico?** — eBPF performance, Hubble observability, CNCF graduated project, default-deny native support.
-
----
-
 ## License
 
-MIT — use freely for learning and portfolio purposes.
-
----
-
-<p align="center">
-  Built with Terraform best practices · <a href="https://www.terraform-best-practices.com/">terraform-best-practices.com</a>
-</p>
+MIT
