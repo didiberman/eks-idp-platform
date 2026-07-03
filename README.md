@@ -1,0 +1,277 @@
+# EKS IDP Platform
+
+> Production-style Internal Developer Platform on AWS EKS — built for platform engineering portfolios.
+
+[![Terraform](https://img.shields.io/badge/Terraform-1.9+-623CE4?logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/eks/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A security-first EKS platform demonstrating the skills platform engineering teams expect: **Terraform modules**, **GitOps**, **policy-as-code**, **network segmentation**, and **autoscaling**.
+
+---
+
+## What This Project Demonstrates
+
+| Capability | Implementation |
+|------------|----------------|
+| Infrastructure as Code | Modular Terraform (networking → EKS → platform services) |
+| Security | Cilium default-deny, Kyverno policies, IRSA, KMS encryption |
+| Autoscaling | Karpenter with spot + on-demand, HPA golden-path app |
+| GitOps | ArgoCD with automated sync of sample application |
+| Observability-ready | Cilium Hubble, EKS control plane logging, VPC flow logs |
+| CI/CD | GitHub Actions — fmt, validate, tflint, checkov, trivy, terraform test |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Developer / GitOps                         │
+│                    GitHub → ArgoCD → Workloads                    │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│                         EKS Cluster                              │
+│  ┌──────────┐  ┌───────────┐  ┌─────────┐  ┌─────────────────┐ │
+│  │  Cilium  │  │ Karpenter │  │ Kyverno │  │     ArgoCD      │ │
+│  │   CNI    │  │ Autoscale │  │ Policies│  │     GitOps      │ │
+│  └──────────┘  └───────────┘  └─────────┘  └─────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  System Node Group (tainted) │  Karpenter-provisioned nodes │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│  VPC (3 AZs) · Private Subnets · NAT · Flow Logs · IRSA/OIDC    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Repository Structure
+
+```
+eks-idp-platform/
+├── bootstrap/state-backend/     # S3 + DynamoDB for remote state
+├── environments/
+│   └── dev/                     # Dev environment composition
+├── modules/
+│   ├── networking/              # VPC, subnets, NAT, flow logs
+│   ├── eks/                     # EKS cluster, IRSA, system node group
+│   ├── cilium/                  # Cilium CNI (ENI mode)
+│   ├── karpenter/               # Karpenter controller + NodePool
+│   ├── kyverno/                 # Policy engine + baseline policies
+│   └── argocd/                  # GitOps controller
+├── apps/golden-path/            # Sample secure workload (ArgoCD target)
+├── tests/                       # terraform test fixtures
+├── docs/adr/                    # Architecture Decision Records
+└── .github/workflows/           # CI pipeline
+```
+
+---
+
+## Prerequisites
+
+- [Terraform](https://developer.hashicorp.com/terraform/install) `>= 1.9`
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) v2
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [helm](https://helm.sh/docs/intro/install/) (optional, for manual debugging)
+- AWS account with permissions for EKS, EC2, IAM, S3, DynamoDB
+
+---
+
+## Quick Start
+
+### 1. Bootstrap Remote State
+
+```bash
+cd bootstrap/state-backend
+cp terraform.tfvars.example terraform.tfvars
+# Edit state_bucket_name to be globally unique
+
+terraform init
+terraform apply
+```
+
+Copy the `backend_config` output into `environments/dev/versions.tf`.
+
+### 2. Deploy the Platform
+
+```bash
+cd environments/dev
+cp terraform.tfvars.example terraform.tfvars
+
+terraform init
+```
+
+**First apply** — create AWS infrastructure (cluster + nodes):
+
+```bash
+terraform apply \
+  -target=module.networking \
+  -target=module.eks
+```
+
+**Second apply** — install platform services (Cilium, Karpenter, Kyverno, ArgoCD):
+
+```bash
+terraform apply
+```
+
+> Two-phase apply is required because Kubernetes/Helm providers depend on the EKS cluster endpoint.
+
+### 3. Configure kubectl
+
+```bash
+aws eks update-kubeconfig --region eu-west-1 --name eks-idp-dev
+kubectl get nodes
+```
+
+### 4. Access ArgoCD
+
+```bash
+# Get admin password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+
+# Port-forward UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+Open [https://localhost:8080](https://localhost:8080) — login: `admin` / `<password>`
+
+---
+
+## Platform Components
+
+### Networking (`modules/networking`)
+
+- 3-AZ VPC with public/private subnet layout
+- NAT gateways per AZ for high availability
+- VPC flow logs to CloudWatch
+- Karpenter discovery tags on subnets
+
+### EKS (`modules/eks`)
+
+- Kubernetes 1.31 with KMS secrets encryption
+- IRSA via OIDC provider
+- Tainted system node group for platform controllers
+- Control plane logging (api, audit, authenticator, scheduler, controllerManager)
+- EKS access entries (modern auth model)
+
+### Cilium (`modules/cilium`)
+
+- eBPF-based CNI in AWS ENI mode
+- Default-deny policy enforcement mode
+- Hubble relay for network flow visibility
+
+### Karpenter (`modules/karpenter`)
+
+- Spot + on-demand capacity
+- Consolidation for cost optimization
+- Spot interruption handling via SQS + EventBridge
+- AL2023 AMI via EC2NodeClass
+
+### Kyverno (`modules/kyverno`)
+
+Baseline policies (audit mode):
+
+- Require standard labels (`app`, `app.team`, `environment`)
+- Disallow `:latest` image tags
+- Require CPU/memory limits
+- Require non-root containers
+
+### ArgoCD (`modules/argocd`)
+
+- GitOps controller with automated sync
+- Pre-configured Application for `apps/golden-path`
+
+---
+
+## Golden Path Application
+
+The sample app in `apps/golden-path/` demonstrates platform standards:
+
+- Required labels for Kyverno compliance
+- Non-root security context with dropped capabilities
+- Resource requests and limits
+- HorizontalPodAutoscaler (2–6 replicas)
+- CiliumNetworkPolicy + Kubernetes NetworkPolicy
+
+---
+
+## CI Pipeline
+
+Every push and PR runs:
+
+1. `terraform fmt -check`
+2. `terraform validate`
+3. `tflint`
+4. Checkov (security)
+5. Trivy (misconfiguration scan)
+6. `terraform test`
+
+---
+
+## Cost Estimate (Dev)
+
+| Resource | Approx. Monthly Cost |
+|----------|---------------------|
+| EKS control plane | ~$73 |
+| 2× t3.medium system nodes | ~$60 |
+| 3× NAT gateways | ~$100 |
+| Karpenter workload nodes | Variable (spot: ~$15/node) |
+| **Total baseline** | **~$230–280/mo** |
+
+> Tear down when not in use: `terraform destroy` in `environments/dev`
+
+---
+
+## Security Considerations
+
+- Restrict `cluster_endpoint_public_access_cidrs` to your IP in production
+- Kyverno policies start in **audit** mode — switch to `Enforce` when ready
+- Remote state bucket enforces encryption and TLS-only access
+- No secrets stored in Terraform variables — use AWS Secrets Manager for app secrets
+
+---
+
+## Architecture Decision Records
+
+| ADR | Decision |
+|-----|----------|
+| [001](docs/adr/001-karpenter-over-cluster-autoscaler.md) | Karpenter over Cluster Autoscaler |
+| [002](docs/adr/002-cilium-as-cni.md) | Cilium as cluster CNI |
+
+---
+
+## Roadmap
+
+- [ ] External Secrets Operator + AWS Secrets Manager
+- [ ] Prometheus + Grafana observability stack
+- [ ] Istio service mesh with mTLS
+- [ ] Backstage developer portal
+- [ ] Multi-environment (staging/prod) with Atlantis
+
+---
+
+## Interview Talking Points
+
+1. **Why two-phase apply?** — Kubernetes providers need the cluster endpoint; this is a known Terraform + EKS pattern.
+2. **Why a tainted system node group?** — Platform controllers (Karpenter, Cilium operator) need stable nodes; workloads scale via Karpenter.
+3. **Why Kyverno in audit mode?** — Safe rollout of policies without blocking existing workloads; promotes policy-as-code culture.
+4. **Why Cilium over Calico?** — eBPF performance, Hubble observability, CNCF graduated project, default-deny native support.
+
+---
+
+## License
+
+MIT — use freely for learning and portfolio purposes.
+
+---
+
+<p align="center">
+  Built with Terraform best practices · <a href="https://www.terraform-best-practices.com/">terraform-best-practices.com</a>
+</p>

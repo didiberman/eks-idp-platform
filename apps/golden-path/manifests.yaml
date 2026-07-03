@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: golden-path
+  labels:
+    app: golden-path
+    app.team: platform
+    environment: dev
+    platform.eks-idp/component: sample-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golden-path
+  namespace: golden-path
+  labels:
+    app: golden-path
+    app.team: platform
+    environment: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: golden-path
+  template:
+    metadata:
+      labels:
+        app: golden-path
+        app.team: platform
+        environment: dev
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: nginx
+          image: public.ecr.aws/nginx/nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: golden-path
+  namespace: golden-path
+  labels:
+    app: golden-path
+    app.team: platform
+    environment: dev
+spec:
+  type: ClusterIP
+  selector:
+    app: golden-path
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: golden-path
+  namespace: golden-path
+  labels:
+    app: golden-path
+    app.team: platform
+    environment: dev
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: golden-path
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: golden-path-default-deny-ingress
+  namespace: golden-path
+  labels:
+    app: golden-path
+    app.team: platform
+    environment: dev
+spec:
+  endpointSelector:
+    matchLabels:
+      app: golden-path
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+    - fromEndpoints:
+        - matchLabels:
+            app: golden-path
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: golden-path-allow-same-namespace
+  namespace: golden-path
+  labels:
+    app: golden-path
+    app.team: platform
+    environment: dev
+spec:
+  podSelector:
+    matchLabels:
+      app: golden-path
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: golden-path
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53

@@ -1,0 +1,4 @@
+aws_region          = "eu-west-1"
+project_name        = "eks-idp-platform"
+state_bucket_name   = "eks-idp-platform-tfstate-YOUR_ACCOUNT_ID"
+dynamodb_table_name = "eks-idp-platform-terraform-locks"

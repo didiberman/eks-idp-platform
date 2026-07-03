@@ -1,0 +1,14 @@
+aws_region    = "eu-west-1"
+project_name  = "eks-idp-platform"
+environment   = "dev"
+cluster_name  = "eks-idp-dev"
+cluster_version = "1.31"
+vpc_cidr      = "10.0.0.0/16"
+
+enable_cilium    = true
+enable_karpenter = true
+enable_kyverno   = true
+enable_argocd    = true
+
+# Restrict API access to your IP in production
+# cluster_endpoint_public_access_cidrs = ["YOUR.IP.ADDRESS/32"]
