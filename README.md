@@ -5,9 +5,11 @@
 [![Terraform](https://img.shields.io/badge/Terraform-1.9+-623CE4?logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/eks/)
+[![Trivy](https://img.shields.io/badge/Security-Trivy%20Scanned-1904DA?logo=aquasecurity&logoColor=white)](https://trivy.dev/)
+[![harden-runner](https://img.shields.io/badge/Supply%20Chain-Harden--Runner-00A651?logo=githubactions&logoColor=white)](https://github.com/step-security/harden-runner)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A security-first EKS platform with Terraform modules, ArgoCD, Kyverno, Cilium, Karpenter, and GitHub Actions CI.
+A security-first EKS platform with Terraform modules, ArgoCD, Kyverno, Cilium, Karpenter, and hardened GitHub Actions CI.
 
 ---
 
@@ -20,7 +22,7 @@ A security-first EKS platform with Terraform modules, ArgoCD, Kyverno, Cilium, K
 | Autoscaling | Scales nodes with Karpenter (spot and on-demand) and scales pods with HPA |
 | GitOps | Deploys applications from Git with ArgoCD and automated sync |
 | Observability | Exposes network flows via Cilium Hubble, EKS control plane logs, and VPC flow logs |
-| CI/CD | Validates every change with fmt, validate, tflint, checkov, trivy, and terraform test |
+| CI/CD | SHA-pinned actions, `harden-runner` egress auditing, Trivy v0.35.0, Checkov, tflint, and `terraform test` |
 
 ---
 
@@ -204,14 +206,17 @@ The sample app in `apps/golden-path/` is a reference workload shipped with:
 
 ## CI Pipeline
 
-Every push and PR runs:
+Every push and PR runs with supply chain hardening:
 
-1. `terraform fmt -check`
-2. `terraform validate`
-3. `tflint`
-4. Checkov (security)
-5. Trivy (misconfiguration scan)
-6. `terraform test`
+1. `step-security/harden-runner` on every job (egress audit)
+2. `terraform fmt -check`
+3. `terraform validate`
+4. `tflint`
+5. Checkov (security)
+6. Trivy v0.35.0 config scan (SHA-pinned)
+7. `terraform test`
+
+All third-party GitHub Actions are pinned to full commit SHAs. Trivy is pinned to `v0.35.0`, which internally SHA-pins `setup-trivy` and avoids mutable tag references compromised in the [March 2026 supply chain attack](https://thehackernews.com/2026/03/trivy-security-scanner-github-actions.html).
 
 ---
 
