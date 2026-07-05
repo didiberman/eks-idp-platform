@@ -1,6 +1,6 @@
 # EKS IDP Platform
 
-> Production IDP on AWS EKS
+> Learn production EKS design by reading — and deploying — a real Internal Developer Platform
 
 [![Terraform](https://img.shields.io/badge/Terraform-1.9+-623CE4?logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
@@ -9,7 +9,28 @@
 [![harden-runner](https://img.shields.io/badge/Supply%20Chain-Harden--Runner-00A651?logo=githubactions&logoColor=white)](https://github.com/step-security/harden-runner)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A security-first EKS platform with Terraform modules, ArgoCD, Kyverno, Cilium, Karpenter, hardened GitHub Actions CI, and scalability benchmarks.
+This repository is **a working platform and a course at the same time**. The Terraform is real and deployable: a security-first EKS platform with Cilium, Karpenter, Kyverno, ArgoCD, and supply-chain-hardened CI. And every design decision in it is explained, in simple words, in a ten-lesson course — including where the platform stops scaling and how that was measured.
+
+---
+
+## 📚 The Course: Production EKS Design in Simple Words
+
+Start here if you're learning. No AWS account required to read — deploying is optional.
+
+| # | Lesson | The question it answers |
+|---|--------|------------------------|
+| 1 | [The Big Picture](docs/learn/01-big-picture.md) | What is an IDP, and why six modules instead of one? |
+| 2 | [Terraform State](docs/learn/02-terraform-state.md) | Why is state the most dangerous file in your infra? |
+| 3 | [Networking](docs/learn/03-networking.md) | Why do IP addresses run out first — at ~600 pods? |
+| 4 | [The EKS Cluster](docs/learn/04-eks-cluster.md) | Why do platform pods get their own tainted nodes? |
+| 5 | [Cilium Networking](docs/learn/05-cilium-networking.md) | What does a CNI do, and why default-deny? |
+| 6 | [Karpenter Autoscaling](docs/learn/06-karpenter-autoscaling.md) | How do nodes appear in seconds — and what caps them? |
+| 7 | [Kyverno Policies](docs/learn/07-kyverno-policies.md) | How does a cluster say "no" politely, then firmly? |
+| 8 | [GitOps with ArgoCD](docs/learn/08-argocd-gitops.md) | Why do production clusters pull instead of being pushed to? |
+| 9 | [Supply Chain Security](docs/learn/09-supply-chain-security.md) | How does a CI pipeline get hacked, and what stops it? |
+| 10 | [Scalability and Limits](docs/learn/10-scalability-and-limits.md) | What breaks first, at what number, and how do you know? |
+
+Each lesson points at the actual Terraform files, ends with interview-grade "check yourself" questions, and — where the cluster is involved — a benchmark you can run in `tests/load/`.
 
 ---
 
@@ -127,6 +148,7 @@ eks-idp-platform/
 │   ├── networking_test.tftest.hcl # Terraform native tests
 │   └── load/                      # Karpenter, HPA, Kyverno benchmarks
 ├── docs/
+│   ├── learn/                     # 📚 The 10-lesson course
 │   ├── scalability.md
 │   └── adr/                       # Architecture Decision Records
 └── .github/workflows/terraform.yml
@@ -341,6 +363,7 @@ Tear down when not in use: `terraform destroy` in `environments/dev`
 ## Roadmap
 
 - [x] Scalability benchmark suite (`tests/load/`)
+- [x] Educational course (`docs/learn/`)
 - [ ] `harden-runner` egress block mode with allowlist
 - [ ] External Secrets Operator + AWS Secrets Manager
 - [ ] Prometheus + Grafana observability stack
