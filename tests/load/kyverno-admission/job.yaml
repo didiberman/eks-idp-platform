@@ -1,0 +1,38 @@
+# Creates many short-lived pods to measure Kyverno admission webhook latency.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kyverno-admission-stress
+  namespace: load-testing
+  labels:
+    app: kyverno-admission-stress
+    app.team: platform
+    environment: dev
+spec:
+  parallelism: 10
+  completions: 100
+  template:
+    metadata:
+      labels:
+        app: kyverno-admission-stress
+        app.team: platform
+        environment: dev
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

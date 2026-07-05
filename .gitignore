@@ -26,3 +26,5 @@ override.tf.json
 
 # Test artifacts
 tests/.terraform/
+tests/load/results/*
+!tests/load/results/.gitkeep

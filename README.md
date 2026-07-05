@@ -67,8 +67,12 @@ eks-idp-platform/
 │   ├── kyverno/                 # Policy engine + baseline policies
 │   └── argocd/                  # GitOps controller
 ├── apps/golden-path/            # Sample secure workload (ArgoCD target)
-├── tests/                       # terraform test fixtures
-├── docs/adr/                    # Architecture Decision Records
+├── tests/
+│   ├── networking_test.tftest.hcl
+│   └── load/                    # Scalability benchmarks
+├── docs/
+│   ├── scalability.md           # Scalability analysis
+│   └── adr/                     # Architecture Decision Records
 └── .github/workflows/           # CI pipeline
 ```
 
@@ -249,6 +253,22 @@ All third-party GitHub Actions are pinned to full commit SHAs. Trivy is pinned t
 |-----|----------|
 | [001](docs/adr/001-karpenter-over-cluster-autoscaler.md) | Karpenter over Cluster Autoscaler |
 | [002](docs/adr/002-cilium-as-cni.md) | Cilium as cluster CNI |
+| [003](docs/adr/003-single-cluster-scalability-limits.md) | Single-cluster scalability limits |
+
+---
+
+## Scalability
+
+Benchmark suite and documented ceilings for the platform:
+
+```bash
+cd tests/load
+./capacity-calculator.sh    # theoretical VPC / ENI limits
+./run-benchmark.sh all      # live cluster benchmarks
+./run-benchmark.sh cleanup  # tear down test workloads
+```
+
+See [docs/scalability.md](docs/scalability.md) for bottleneck analysis and production scaling path.
 
 ---
 

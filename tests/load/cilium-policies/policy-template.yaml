@@ -1,0 +1,32 @@
+# Optional: many NetworkPolicies to measure Cilium policy evaluation overhead.
+# Apply incrementally and re-run cilium connectivity tests between batches.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: load-test-policy-template
+  namespace: load-testing
+  labels:
+    app: load-testing
+    app.team: platform
+    environment: dev
+spec:
+  endpointSelector:
+    matchLabels:
+      policy-group: scale-test-a
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            policy-group: scale-test-a
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            policy-group: scale-test-a
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
